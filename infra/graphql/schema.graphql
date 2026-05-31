@@ -1,0 +1,91 @@
+# StoryboardAI GraphQL API — starter slice of the bible + narrative graph.
+# This is the platform-agnostic boundary: web/mobile/VR are all just clients of this.
+# Auth: Amazon Cognito user pools (default). Real-time sync via @aws_subscribe.
+
+type Story {
+  id: ID!
+  ownerSub: String!
+  title: String!
+  premise: String
+  genre: String
+  pov: String
+  tense: String
+  createdAt: AWSDateTime!
+}
+
+# A character file — traits/tendencies/voice live here, the "separate file" that makes
+# storytelling feel persistent. (state is JSON: injuries, knowledge, mood, location...)
+type Character {
+  id: ID!
+  storyId: ID!
+  name: String!
+  role: String
+  traits: [String!]
+  tendencies: [String!]
+  speechPatterns: String
+  elevenLabsVoiceId: String
+  appearance: String
+  state: AWSJSON
+  createdAt: AWSDateTime!
+}
+
+# A scene/beat — the unit of writing + generation. Branching lives on edges (see roadmap).
+type NarrativeNode {
+  id: ID!
+  storyId: ID!
+  title: String
+  content: String
+  summary: String
+  charactersPresent: [ID!]
+  status: String
+  createdAt: AWSDateTime!
+}
+
+input CreateStoryInput {
+  title: String!
+  premise: String
+  genre: String
+  pov: String
+  tense: String
+}
+
+input CreateCharacterInput {
+  storyId: ID!
+  name: String!
+  role: String
+  traits: [String!]
+  tendencies: [String!]
+  speechPatterns: String
+  elevenLabsVoiceId: String
+  appearance: String
+  state: AWSJSON
+}
+
+input CreateNodeInput {
+  storyId: ID!
+  title: String
+  content: String
+  summary: String
+  charactersPresent: [ID!]
+}
+
+type Query {
+  listStories: [Story!]!
+  getStory(id: ID!): Story
+  listCharacters(storyId: ID!): [Character!]!
+  listNodes(storyId: ID!): [NarrativeNode!]!
+}
+
+type Mutation {
+  createStory(input: CreateStoryInput!): Story!
+  createCharacter(input: CreateCharacterInput!): Character!
+  createNode(input: CreateNodeInput!): NarrativeNode!
+}
+
+# Real-time sync: clients subscribe; any matching mutation fans out to every device.
+type Subscription {
+  onCharacterCreated(storyId: ID!): Character
+    @aws_subscribe(mutations: ["createCharacter"])
+  onNodeCreated(storyId: ID!): NarrativeNode
+    @aws_subscribe(mutations: ["createNode"])
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@storyboard/infra",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "storyboard": "bin/storyboard.ts"
+  },
+  "scripts": {
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy --require-approval never",
+    "destroy": "cdk destroy",
+    "bootstrap": "cdk bootstrap",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^22.9.0",
+    "aws-cdk": "^2.170.0",
+    "esbuild": "^0.24.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.170.0",
+    "constructs": "^10.4.2"
+  }
+}

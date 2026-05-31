@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node", "aws-lambda"],
+    "noEmit": true,
+    "declaration": false
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}

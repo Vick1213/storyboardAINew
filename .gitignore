@@ -1,0 +1,32 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# cdk
+infra/cdk.out/
+cdk.out/
+*.d.ts.map
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# os / editor
+.DS_Store
+.vscode/
+.idea/
+
+# turbo
+.turbo/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

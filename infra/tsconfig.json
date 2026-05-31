@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "declaration": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "isolatedModules": false
+  },
+  "include": ["bin/**/*.ts", "lib/**/*.ts"],
+  "exclude": ["node_modules", "cdk.out"]
+}
