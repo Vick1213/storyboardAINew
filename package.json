@@ -10,8 +10,8 @@
   "scripts": {
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "deploy": "pnpm --filter @storyboard/infra deploy",
-    "synth": "pnpm --filter @storyboard/infra synth"
+    "deploy": "pnpm --filter @storyboard/infra run deploy",
+    "synth": "pnpm --filter @storyboard/infra run synth"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",

@@ -86,6 +86,11 @@ export async function assembleContext(
       ? `Style — POV: ${style?.pov ?? story.pov ?? "unspecified"}; tense: ${style?.tense ?? story.tense ?? "unspecified"}; tone: ${style?.tone ?? "unspecified"}; rating: ${style?.contentRating ?? "unspecified"}.`
       : "",
     `Stay consistent with the bible below. Never contradict established facts; honour each character's traits, tendencies, and voice.`,
+    // Fork discipline: at a branch, two sibling nodes share the same recent prose but
+    // differ in cast/premise. Without this, "continue" drifts toward whoever is most
+    // vivid in the recent window (e.g. a character dropped at the fork). No per-node
+    // names here, so the prefix stays cross-session stable and cacheable (invariant #6).
+    `Write only the scene described in the instruction. Treat CAST IN SCENE as the complete set of characters present; do not reintroduce characters or settings from earlier prose unless the instruction calls for them.`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -140,7 +145,7 @@ export async function assembleContext(
   const join = (seg: Segment) =>
     kept.filter((k) => k.segment === seg).map((k) => k.block).join("\n\n");
 
-  const instruction = describeIntent(intent, node?.title ?? nodeId);
+  const instruction = describeIntent(intent, node?.title ?? nodeId, node?.summary);
 
   return {
     system,
@@ -158,15 +163,20 @@ export async function assembleContext(
   };
 }
 
-function describeIntent(intent: Intent, nodeRef: string): string {
+function describeIntent(intent: Intent, nodeRef: string, summary?: string): string {
+  // The node's own summary is THIS branch's premise. Passing only the title let
+  // "continue" follow whatever was most salient in the recent prose — at a fork that
+  // meant importing a sibling branch's scene. The summary anchors the model to where
+  // this node actually goes. (Appended, so existing intent prefixes are unchanged.)
+  const scene = summary ? ` This scene: ${summary}` : "";
   switch (intent) {
     case "continue":
-      return `Continue the prose from where "${nodeRef}" leaves off, in voice and style.`;
+      return `Continue the prose from where "${nodeRef}" leaves off, in voice and style.${scene}`;
     case "rewrite":
-      return `Rewrite "${nodeRef}" preserving plot beats but improving the prose.`;
+      return `Rewrite "${nodeRef}" preserving plot beats but improving the prose.${scene}`;
     case "ideate":
-      return `Propose 3 distinct directions the story could take from "${nodeRef}".`;
+      return `Propose 3 distinct directions the story could take from "${nodeRef}".${scene}`;
     case "draft":
-      return `Draft the scene "${nodeRef}" from the established context.`;
+      return `Draft the scene "${nodeRef}" from the established context.${scene}`;
   }
 }

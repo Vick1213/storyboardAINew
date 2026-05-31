@@ -129,7 +129,10 @@ export class StoryboardStack extends cdk.Stack {
       environment: {
         BEDROCK_MODEL_ID:
           process.env.BEDROCK_MODEL_ID ??
-          "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+          // claude-3-5-sonnet-20241022-v2 was retired from Bedrock; Sonnet 4.6 is
+          // the current grounded-writing default (same bedrock-2023-05-31 Messages
+          // shape + prompt-caching token accounting). Override via BEDROCK_MODEL_ID.
+          "us.anthropic.claude-sonnet-4-6",
         // Grounded writing reads the bible/graph slice for a node from the single table.
         TABLE_NAME: table.tableName,
       },

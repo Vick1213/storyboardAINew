@@ -136,6 +136,27 @@ describe("assembleContext", () => {
     expect((await assembleContext("s1", "n3", "draft", deps)).instruction).toMatch(/^Draft/);
   });
 
+  it("anchors the instruction to the node's own summary (fork premise, not just the title)", async () => {
+    // The fork-drift bug: "continue" with only the title let the model follow the
+    // recent prose into a sibling branch. The node summary must reach the model.
+    const ctx = await assembleContext("s1", "n3", "continue", makeDeps());
+    expect(ctx.instruction).toContain("An ambush in the fog.");
+  });
+
+  it("omits the scene clause when the node has no summary", async () => {
+    const noSummary: NarrativeNode = { id: "ns", storyId: "s1", title: "Untitled", createdAt: "2026-01-01T00:00:09.000Z" };
+    const deps = makeDeps();
+    deps.graph.getNode = async () => noSummary;
+    const ctx = await assembleContext("s1", "ns", "continue", deps);
+    expect(ctx.instruction).not.toContain("This scene:");
+  });
+
+  it("states fork discipline (cast = who is present) in the cacheable system prefix", async () => {
+    const ctx = await assembleContext("s1", "n3", "continue", makeDeps());
+    expect(ctx.system).toContain("CAST IN SCENE");
+    expect(ctx.system).toMatch(/do not reintroduce characters/i);
+  });
+
   it("is deterministic — repeated calls produce a byte-identical cacheable prefix", async () => {
     const a = await assembleContext("s1", "n3", "continue", makeDeps());
     const b = await assembleContext("s1", "n3", "continue", makeDeps());
