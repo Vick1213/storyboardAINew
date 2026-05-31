@@ -17,6 +17,7 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
 //   Story    PK=STORY#<id>  SK=meta        GSI1PK=OWNER#<sub>  GSI1SK=STORY#<createdAt>
 //   Character PK=STORY#<id>  SK=CHAR#<id>
 //   Node      PK=STORY#<id>  SK=NODE#<id>
+//   Edge      PK=STORY#<id>  SK=EDGE#<id>
 const storyPK = (id: string) => `STORY#${id}`;
 const ownerPK = (sub: string) => `OWNER#${sub}`;
 
@@ -113,6 +114,30 @@ export const handler = async (event: Event) => {
           TableName: TABLE,
           KeyConditionExpression: "PK = :p AND begins_with(SK, :sk)",
           ExpressionAttributeValues: { ":p": storyPK(args.storyId), ":sk": "NODE#" },
+        }),
+      );
+      return (res.Items ?? []).map(stripKeys);
+    }
+
+    case "createEdge": {
+      const id = randomUUID();
+      const item = {
+        PK: storyPK(args.input.storyId),
+        SK: `EDGE#${id}`,
+        id,
+        createdAt: now,
+        ...args.input,
+      };
+      await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+      return stripKeys(item);
+    }
+
+    case "listEdges": {
+      const res = await ddb.send(
+        new QueryCommand({
+          TableName: TABLE,
+          KeyConditionExpression: "PK = :p AND begins_with(SK, :sk)",
+          ExpressionAttributeValues: { ":p": storyPK(args.storyId), ":sk": "EDGE#" },
         }),
       );
       return (res.Items ?? []).map(stripKeys);

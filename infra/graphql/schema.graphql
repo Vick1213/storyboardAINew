@@ -29,7 +29,7 @@ type Character {
   createdAt: AWSDateTime!
 }
 
-# A scene/beat — the unit of writing + generation. Branching lives on edges (see roadmap).
+# A scene/beat — the unit of writing + generation. Branching lives on edges (below).
 type NarrativeNode {
   id: ID!
   storyId: ID!
@@ -38,6 +38,17 @@ type NarrativeNode {
   summary: String
   charactersPresent: [ID!]
   status: String
+  createdAt: AWSDateTime!
+}
+
+# A directed edge between nodes. A `choice` (JSON: { label, condition?, effects? }) makes
+# it a decision-game fork — the narrative is a GRAPH, not a list (invariant #2 / §3.2).
+type NarrativeEdge {
+  id: ID!
+  storyId: ID!
+  fromNodeId: ID!
+  toNodeId: ID!
+  choice: AWSJSON
   createdAt: AWSDateTime!
 }
 
@@ -69,17 +80,26 @@ input CreateNodeInput {
   charactersPresent: [ID!]
 }
 
+input CreateEdgeInput {
+  storyId: ID!
+  fromNodeId: ID!
+  toNodeId: ID!
+  choice: AWSJSON
+}
+
 type Query {
   listStories: [Story!]!
   getStory(id: ID!): Story
   listCharacters(storyId: ID!): [Character!]!
   listNodes(storyId: ID!): [NarrativeNode!]!
+  listEdges(storyId: ID!): [NarrativeEdge!]!
 }
 
 type Mutation {
   createStory(input: CreateStoryInput!): Story!
   createCharacter(input: CreateCharacterInput!): Character!
   createNode(input: CreateNodeInput!): NarrativeNode!
+  createEdge(input: CreateEdgeInput!): NarrativeEdge!
 }
 
 # Real-time sync: clients subscribe; any matching mutation fans out to every device.
@@ -88,4 +108,6 @@ type Subscription {
     @aws_subscribe(mutations: ["createCharacter"])
   onNodeCreated(storyId: ID!): NarrativeNode
     @aws_subscribe(mutations: ["createNode"])
+  onEdgeCreated(storyId: ID!): NarrativeEdge
+    @aws_subscribe(mutations: ["createEdge"])
 }

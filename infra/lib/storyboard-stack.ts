@@ -105,9 +105,11 @@ export class StoryboardStack extends cdk.Stack {
       ["Query", "getStory"],
       ["Query", "listCharacters"],
       ["Query", "listNodes"],
+      ["Query", "listEdges"],
       ["Mutation", "createStory"],
       ["Mutation", "createCharacter"],
       ["Mutation", "createNode"],
+      ["Mutation", "createEdge"],
     ];
     for (const [typeName, fieldName] of fields) {
       ds.createResolver(`${typeName}_${fieldName}`, { typeName, fieldName });
@@ -128,9 +130,20 @@ export class StoryboardStack extends cdk.Stack {
         BEDROCK_MODEL_ID:
           process.env.BEDROCK_MODEL_ID ??
           "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+        // Grounded writing reads the bible/graph slice for a node from the single table.
+        TABLE_NAME: table.tableName,
       },
-      bundling: { externalModules: ["@aws-sdk/*"], minify: true, target: "node20" },
+      bundling: {
+        // DynamoDB clients are provided by the Node 20 runtime; bedrock-runtime is not
+        // guaranteed there, so BUNDLE it (keep the proven dynamo clients external).
+        externalModules: ["@aws-sdk/client-dynamodb", "@aws-sdk/lib-dynamodb"],
+        minify: true,
+        target: "node20",
+      },
     });
+    // Grounded writing only READS the bible/graph; committed prose is persisted via the
+    // GraphQL resolver (which has read/write). Keep this least-privilege.
+    table.grantReadData(streamingFn);
     // Bedrock invoke permission (scope to specific model ARNs before prod).
     streamingFn.addToRolePolicy(
       new iam.PolicyStatement({
@@ -146,6 +159,8 @@ export class StoryboardStack extends cdk.Stack {
 
     // ---- Outputs (feed these into apps/web/.env) ----------------------------
     new cdk.CfnOutput(this, "GraphQLUrl", { value: api.graphqlUrl });
+    // Needed by functions/seed/seed.mjs (TABLE_NAME=...) to seed the demo story.
+    new cdk.CfnOutput(this, "TableName", { value: table.tableName });
     new cdk.CfnOutput(this, "UserPoolId", { value: userPool.userPoolId });
     new cdk.CfnOutput(this, "UserPoolClientId", { value: userPoolClient.userPoolClientId });
     new cdk.CfnOutput(this, "StreamingUrl", { value: streamingUrl.url });
