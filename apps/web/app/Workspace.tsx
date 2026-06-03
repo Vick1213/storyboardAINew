@@ -18,6 +18,8 @@ import { StoryList } from "./StoryList";
 import { BiblePanel } from "./BiblePanel";
 import { GraphPanel } from "./GraphPanel";
 import { NodeEditor } from "./NodeEditor";
+import { Wizard } from "./Wizard";
+import { buttonPrimary } from "../lib/ui";
 
 function upsertById<T extends { id: string }>(prev: T[], item: T): T[] {
   const i = prev.findIndex((x) => x.id === item.id);
@@ -36,6 +38,10 @@ export function Workspace({ email, signOut }: { email?: string; signOut?: () => 
   const [nodes, setNodes] = useState<NarrativeNode[]>([]);
   const [edges, setEdges] = useState<NarrativeEdge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
+  // A node to auto-select once the story's graph finishes loading (set by the wizard,
+  // which creates the opening node directly — the load effect applies it post-fetch).
+  const pendingNodeRef = useRef<string | null>(null);
 
   // Load the user's stories once.
   useEffect(() => {
@@ -72,6 +78,11 @@ export function Workspace({ email, signOut }: { email?: string; signOut?: () => 
         setCharacters(cs);
         setNodes(ns);
         setEdges(es);
+        // Apply a wizard-requested selection now that nodes exist.
+        if (pendingNodeRef.current) {
+          setSelectedNodeId(pendingNodeRef.current);
+          pendingNodeRef.current = null;
+        }
       })
       .catch((e) => console.error("load story", e));
 
@@ -157,6 +168,16 @@ export function Workspace({ email, signOut }: { email?: string; signOut?: () => 
     [storyId],
   );
 
+  // The wizard creates story/characters/opening-node directly via the API; here we just
+  // adopt the new story, queue the opening node for selection, and let the story-change
+  // effect load the freshly-created bible + graph from the server.
+  const onWizardComplete = useCallback((s: Story, openingNodeId: string | null) => {
+    setStories((p) => upsertById(p, s));
+    pendingNodeRef.current = openingNodeId;
+    setStoryId(s.id);
+    setShowWizard(false);
+  }, []);
+
   const story = stories.find((s) => s.id === storyId) ?? null;
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
 
@@ -189,6 +210,12 @@ export function Workspace({ email, signOut }: { email?: string; signOut?: () => 
 
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", flex: 1, minHeight: 0 }}>
         <aside style={{ borderRight: `1px solid ${colors.border}`, overflowY: "auto", padding: 16 }}>
+          <button
+            onClick={() => setShowWizard(true)}
+            style={{ ...buttonPrimary, width: "100%", marginBottom: 16 }}
+          >
+            ✨ New story (guided)
+          </button>
           <StoryList
             stories={stories}
             selectedId={storyId}
@@ -200,8 +227,12 @@ export function Workspace({ email, signOut }: { email?: string; signOut?: () => 
 
         <main style={{ overflowY: "auto", padding: 20, minWidth: 0 }}>
           {!story ? (
-            <div style={{ color: colors.dim, marginTop: 40, textAlign: "center" }}>
-              Select a story on the left, or create one to start designing its bible and graph.
+            <div style={{ color: colors.dim, marginTop: 60, textAlign: "center", display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
+              <div>Start a new story and the AI will help you cast it and find its opening.</div>
+              <button onClick={() => setShowWizard(true)} style={buttonPrimary}>
+                ✨ Start guided setup
+              </button>
+              <div style={{ fontSize: 12 }}>…or pick one on the left.</div>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 20, alignItems: "start" }}>
@@ -235,6 +266,10 @@ export function Workspace({ email, signOut }: { email?: string; signOut?: () => 
           )}
         </main>
       </div>
+
+      {showWizard && (
+        <Wizard onClose={() => setShowWizard(false)} onComplete={onWizardComplete} />
+      )}
     </div>
   );
 }

@@ -67,6 +67,18 @@ export const suggestCharacters = (storyId: string, count = 4) =>
     { input: { storyId, count } },
   );
 
+// AI-proposed opening scene (not persisted until the wizard creates a node from it).
+export interface SceneDraft {
+  title: string;
+  summary: string;
+  characterNames?: string[];
+}
+export const suggestOpeningScene = (storyId: string) =>
+  run<SceneDraft>(
+    `query($input: SuggestSceneInput!) { suggestOpeningScene(input: $input) { title summary characterNames } }`,
+    { input: { storyId } },
+  );
+
 // ── Mutations ─────────────────────────────────────────────────────────────────────────
 export type CreateStoryInput = Pick<Story, "title"> &
   Partial<Pick<Story, "premise" | "form" | "genre" | "pov" | "tense">>;

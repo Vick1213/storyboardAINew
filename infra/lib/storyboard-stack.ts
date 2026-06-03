@@ -147,12 +147,10 @@ export class StoryboardStack extends cdk.Stack {
         resources: ["*"], // scope to model ARNs before prod
       }),
     );
-    api
-      .addLambdaDataSource("SuggestDS", suggestFn)
-      .createResolver("Query_suggestCharacters", {
-        typeName: "Query",
-        fieldName: "suggestCharacters",
-      });
+    const suggestDs = api.addLambdaDataSource("SuggestDS", suggestFn);
+    for (const fieldName of ["suggestCharacters", "suggestOpeningScene"]) {
+      suggestDs.createResolver(`Query_${fieldName}`, { typeName: "Query", fieldName });
+    }
 
     // ---- LLM streaming: Lambda response streaming -> Claude on Bedrock ------
     // Demonstrates §10 step 4: token streaming that lives OUTSIDE the reactive

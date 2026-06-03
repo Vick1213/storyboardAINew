@@ -133,6 +133,19 @@ input SuggestCharactersInput {
   count: Int
 }
 
+# An AI-proposed opening scene, grounded in the premise + the existing cast. Like
+# CharacterDraft it is NOT persisted — the wizard creates a node from it on accept.
+# characterNames are hints matched (case-insensitively) to the story's characters.
+type SceneDraft {
+  title: String!
+  summary: String!
+  characterNames: [String!]
+}
+
+input SuggestSceneInput {
+  storyId: ID!
+}
+
 type Query {
   listStories: [Story!]!
   getStory(id: ID!): Story
@@ -141,6 +154,8 @@ type Query {
   listEdges(storyId: ID!): [NarrativeEdge!]!
   # AI generation: proposes a cast from the story bible (Bedrock tool-use, inputHash-cached).
   suggestCharacters(input: SuggestCharactersInput!): [CharacterDraft!]!
+  # AI generation: proposes an opening scene grounded in the premise + cast.
+  suggestOpeningScene(input: SuggestSceneInput!): SceneDraft!
 }
 
 type Mutation {
