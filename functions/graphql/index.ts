@@ -5,6 +5,7 @@ import {
   PutCommand,
   GetCommand,
   QueryCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import type { AppSyncResolverEvent, AppSyncIdentityCognito } from "aws-lambda";
 
@@ -27,6 +28,40 @@ const stripKeys = <T extends Record<string, any>>(item: T) => {
   const { PK, SK, GSI1PK, GSI1SK, ...rest } = item;
   return rest;
 };
+
+// Build a partial UpdateCommand from an input: SET only the provided fields, leave the
+// rest untouched. `storyId`/`id` are keys, never written. All names go through
+// ExpressionAttributeNames so reserved words (status, name, role, state) are safe.
+// Returns the updated item (ALL_NEW) so the mutation/subscription payload is complete.
+async function partialUpdate(SK: string, input: Record<string, any>) {
+  const { storyId, id, ...fields } = input;
+  const entries = Object.entries(fields).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) {
+    // Nothing to change — return the current item so the contract still holds.
+    const res = await ddb.send(
+      new GetCommand({ TableName: TABLE, Key: { PK: storyPK(storyId), SK } }),
+    );
+    return res.Item ? stripKeys(res.Item) : null;
+  }
+  const names: Record<string, string> = {};
+  const values: Record<string, any> = {};
+  const sets = entries.map(([k, v], i) => {
+    names[`#f${i}`] = k;
+    values[`:v${i}`] = v;
+    return `#f${i} = :v${i}`;
+  });
+  const res = await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: storyPK(storyId), SK },
+      UpdateExpression: `SET ${sets.join(", ")}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+  return res.Attributes ? stripKeys(res.Attributes) : null;
+}
 
 export const handler = async (event: Event) => {
   const field = event.info.fieldName;
@@ -142,6 +177,12 @@ export const handler = async (event: Event) => {
       );
       return (res.Items ?? []).map(stripKeys);
     }
+
+    case "updateNode":
+      return partialUpdate(`NODE#${args.input.id}`, args.input);
+
+    case "updateCharacter":
+      return partialUpdate(`CHAR#${args.input.id}`, args.input);
 
     default:
       throw new Error(`Unhandled field: ${field}`);

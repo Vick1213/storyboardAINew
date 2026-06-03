@@ -110,6 +110,8 @@ export class StoryboardStack extends cdk.Stack {
       ["Mutation", "createCharacter"],
       ["Mutation", "createNode"],
       ["Mutation", "createEdge"],
+      ["Mutation", "updateNode"],
+      ["Mutation", "updateCharacter"],
     ];
     for (const [typeName, fieldName] of fields) {
       ds.createResolver(`${typeName}_${fieldName}`, { typeName, fieldName });
@@ -157,7 +159,14 @@ export class StoryboardStack extends cdk.Stack {
     const streamingUrl = streamingFn.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE, // dev only — front with Cognito/IAM before prod
       invokeMode: lambda.InvokeMode.RESPONSE_STREAM,
-      cors: { allowedOrigins: ["*"], allowedMethods: [lambda.HttpMethod.ALL] },
+      // allowedHeaders is REQUIRED: the client POSTs `content-type: application/json`,
+      // a non-safelisted header that triggers a CORS preflight. Without echoing it back
+      // the browser blocks the request (surfaces as fetch "Load failed"). curl is unaffected.
+      cors: {
+        allowedOrigins: ["*"],
+        allowedMethods: [lambda.HttpMethod.ALL],
+        allowedHeaders: ["content-type"],
+      },
     });
 
     // ---- Outputs (feed these into apps/web/.env) ----------------------------

@@ -151,6 +151,24 @@ describe("assembleContext", () => {
     expect(ctx.instruction).not.toContain("This scene:");
   });
 
+  it("injects a screenplay format directive into the cacheable system prefix when form=screenplay", async () => {
+    const deps = makeDeps();
+    deps.bible.getStory = async () => ({ ...STORY, form: "screenplay" });
+    const ctx = await assembleContext("s1", "n3", "continue", deps);
+    expect(ctx.system).toContain("Form: screenplay");
+    expect(ctx.system).toMatch(/INT\.\/EXT\./);
+    expect(ctx.system).not.toMatch(/Write in prose:/);
+  });
+
+  it("uses a prose directive for prose forms and omits the line entirely when form is unset", async () => {
+    const prose = makeDeps();
+    prose.bible.getStory = async () => ({ ...STORY, form: "novella" });
+    expect((await assembleContext("s1", "n3", "continue", prose)).system).toContain("Form: novella");
+
+    // Default story (no form) — no Form: line at all, so prefixes stay stable for existing stories.
+    expect((await assembleContext("s1", "n3", "continue", makeDeps())).system).not.toContain("Form:");
+  });
+
   it("states fork discipline (cast = who is present) in the cacheable system prefix", async () => {
     const ctx = await assembleContext("s1", "n3", "continue", makeDeps());
     expect(ctx.system).toContain("CAST IN SCENE");

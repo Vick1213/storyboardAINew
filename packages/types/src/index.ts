@@ -1,11 +1,24 @@
 // Canonical domain shapes for StoryboardAI. One definition, shared by the API,
 // the AI runtime, and every client. Mirrors the GraphQL schema + docs/ARCHITECTURE.md §3.
 
+/** The shape/medium a story is written in — drives the format Claude writes in. */
+export type StoryForm =
+  | "novel"
+  | "novella"
+  | "short-story"
+  | "flash-fiction"
+  | "screenplay"
+  | "stage-play"
+  | "serial"
+  | "interactive";
+
 export interface Story {
   id: string;
   ownerSub: string;
   title: string;
   premise?: string;
+  /** novel / novella / screenplay / … — feeds the assembler's cacheable style prefix. */
+  form?: StoryForm;
   genre?: string;
   pov?: string;
   tense?: string;

@@ -1,5 +1,26 @@
-import type { Character } from "@storyboard/types";
+import type { Character, StoryForm } from "@storyboard/types";
 import type { BiblePort, GraphPort, RetrievalPort } from "./ports";
+
+// Form-specific FORMAT directives. The story's form (screenplay vs novella vs …) changes
+// HOW the model writes, not just what — so it goes in the stable, cacheable system prefix
+// (invariant #6), keyed off a value that's constant for the life of the story. Unknown /
+// undefined forms fall back to prose (the default for a writing app).
+const FORM_DIRECTIVES: Record<StoryForm, string> = {
+  novel: "Form: novel. Write in prose: paragraphs, narration, interiority. Pace for the long form.",
+  novella: "Form: novella. Write in prose: paragraphs and narration, tighter and more focused than a novel.",
+  "short-story": "Form: short story. Write in prose, economical — every scene earns its place toward a single effect.",
+  "flash-fiction": "Form: flash fiction. Write in prose, extremely compressed; imply more than you state.",
+  screenplay:
+    "Form: screenplay. Format as a screenplay: scene headings (INT./EXT. LOCATION — TIME), present-tense action lines, and character cue lines (NAME in caps) above dialogue. No prose narration or interior monologue — externalize everything into action and dialogue.",
+  "stage-play":
+    "Form: stage play. Format for the stage: ACT/SCENE headings, character names before dialogue, and parenthetical stage directions. Convey interiority through dialogue and action, not narration.",
+  serial: "Form: serial. Write in prose as an episodic installment — end on a hook, assume returning readers.",
+  interactive:
+    "Form: interactive fiction. Write in prose for a branching, choice-driven story; keep scenes self-contained so they can lead to multiple continuations.",
+};
+
+const formDirective = (form?: StoryForm): string =>
+  form && FORM_DIRECTIVES[form] ? FORM_DIRECTIVES[form] : "";
 
 // ── docs/ARCHITECTURE.md §4 — THE HEART OF THE CODEBASE ──────────────────────
 // Pure, testable function: (storyId, nodeId, intent) -> a budgeted prompt context.
@@ -82,6 +103,7 @@ export async function assembleContext(
   const system = [
     `You are co-authoring "${story.title}".`,
     story.premise ? `Premise: ${story.premise}` : "",
+    formDirective(story.form),
     style || story.pov || story.tense
       ? `Style — POV: ${style?.pov ?? story.pov ?? "unspecified"}; tense: ${style?.tense ?? story.tense ?? "unspecified"}; tone: ${style?.tone ?? "unspecified"}; rating: ${style?.contentRating ?? "unspecified"}.`
       : "",

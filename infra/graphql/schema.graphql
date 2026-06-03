@@ -7,6 +7,8 @@ type Story {
   ownerSub: String!
   title: String!
   premise: String
+  # novel / novella / short-story / flash-fiction / screenplay / stage-play / serial / interactive
+  form: String
   genre: String
   pov: String
   tense: String
@@ -55,6 +57,7 @@ type NarrativeEdge {
 input CreateStoryInput {
   title: String!
   premise: String
+  form: String
   genre: String
   pov: String
   tense: String
@@ -87,6 +90,32 @@ input CreateEdgeInput {
   choice: AWSJSON
 }
 
+# Updates carry the keys (storyId + id) plus any subset of editable fields. Omitted
+# fields are left untouched (resolver builds a dynamic UpdateExpression). The bible is
+# mutable — this is how the continuity pass folds prose/state back in (invariant #1).
+input UpdateNodeInput {
+  storyId: ID!
+  id: ID!
+  title: String
+  content: String
+  summary: String
+  charactersPresent: [ID!]
+  status: String
+}
+
+input UpdateCharacterInput {
+  storyId: ID!
+  id: ID!
+  name: String
+  role: String
+  traits: [String!]
+  tendencies: [String!]
+  speechPatterns: String
+  elevenLabsVoiceId: String
+  appearance: String
+  state: AWSJSON
+}
+
 type Query {
   listStories: [Story!]!
   getStory(id: ID!): Story
@@ -100,6 +129,8 @@ type Mutation {
   createCharacter(input: CreateCharacterInput!): Character!
   createNode(input: CreateNodeInput!): NarrativeNode!
   createEdge(input: CreateEdgeInput!): NarrativeEdge!
+  updateNode(input: UpdateNodeInput!): NarrativeNode!
+  updateCharacter(input: UpdateCharacterInput!): Character!
 }
 
 # Real-time sync: clients subscribe; any matching mutation fans out to every device.
@@ -110,4 +141,8 @@ type Subscription {
     @aws_subscribe(mutations: ["createNode"])
   onEdgeCreated(storyId: ID!): NarrativeEdge
     @aws_subscribe(mutations: ["createEdge"])
+  onNodeUpdated(storyId: ID!): NarrativeNode
+    @aws_subscribe(mutations: ["updateNode"])
+  onCharacterUpdated(storyId: ID!): Character
+    @aws_subscribe(mutations: ["updateCharacter"])
 }
