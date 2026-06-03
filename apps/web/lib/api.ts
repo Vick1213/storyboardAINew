@@ -51,6 +51,22 @@ export const listEdges = (storyId: string) =>
     { storyId },
   );
 
+// AI-proposed cast (not persisted until the user accepts via createCharacter).
+export interface CharacterDraft {
+  name: string;
+  role?: string;
+  traits?: string[];
+  tendencies?: string[];
+  speechPatterns?: string;
+  appearance?: string;
+}
+const DRAFT_FIELDS = `name role traits tendencies speechPatterns appearance`;
+export const suggestCharacters = (storyId: string, count = 4) =>
+  run<CharacterDraft[]>(
+    `query($input: SuggestCharactersInput!) { suggestCharacters(input: $input) { ${DRAFT_FIELDS} } }`,
+    { input: { storyId, count } },
+  );
+
 // ── Mutations ─────────────────────────────────────────────────────────────────────────
 export type CreateStoryInput = Pick<Story, "title"> &
   Partial<Pick<Story, "premise" | "form" | "genre" | "pov" | "tense">>;

@@ -116,12 +116,31 @@ input UpdateCharacterInput {
   state: AWSJSON
 }
 
+# An AI-proposed character, grounded in the story's premise/genre/form. NOT persisted —
+# the user curates (accept/edit/drop) and only an explicit createCharacter writes the
+# bible (invariant #1: the bible stays human-authoritative).
+type CharacterDraft {
+  name: String!
+  role: String
+  traits: [String!]
+  tendencies: [String!]
+  speechPatterns: String
+  appearance: String
+}
+
+input SuggestCharactersInput {
+  storyId: ID!
+  count: Int
+}
+
 type Query {
   listStories: [Story!]!
   getStory(id: ID!): Story
   listCharacters(storyId: ID!): [Character!]!
   listNodes(storyId: ID!): [NarrativeNode!]!
   listEdges(storyId: ID!): [NarrativeEdge!]!
+  # AI generation: proposes a cast from the story bible (Bedrock tool-use, inputHash-cached).
+  suggestCharacters(input: SuggestCharactersInput!): [CharacterDraft!]!
 }
 
 type Mutation {

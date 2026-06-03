@@ -117,6 +117,43 @@ export class StoryboardStack extends cdk.Stack {
       ds.createResolver(`${typeName}_${fieldName}`, { typeName, fieldName });
     }
 
+    // ---- AI character suggestion: dedicated Bedrock-backed resolver ---------
+    // Kept OFF the CRUD resolver so that Lambda stays least-privilege (no Bedrock) and
+    // lean. This one reads the bible + writes an inputHash cache, and invokes Bedrock.
+    const suggestFn = new NodejsFunction(this, "SuggestFn", {
+      entry: path.join(FUNCTIONS_DIR, "suggest", "index.ts"),
+      projectRoot: REPO_ROOT,
+      depsLockFilePath: LOCK_FILE,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        TABLE_NAME: table.tableName,
+        BEDROCK_MODEL_ID:
+          process.env.BEDROCK_MODEL_ID ?? "us.anthropic.claude-sonnet-4-6",
+      },
+      bundling: {
+        // Mirror StreamingFn: dynamo clients are on the runtime; bundle bedrock-runtime.
+        externalModules: ["@aws-sdk/client-dynamodb", "@aws-sdk/lib-dynamodb"],
+        minify: true,
+        target: "node20",
+      },
+    });
+    table.grantReadWriteData(suggestFn); // reads story meta, writes the suggestion cache
+    suggestFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: ["*"], // scope to model ARNs before prod
+      }),
+    );
+    api
+      .addLambdaDataSource("SuggestDS", suggestFn)
+      .createResolver("Query_suggestCharacters", {
+        typeName: "Query",
+        fieldName: "suggestCharacters",
+      });
+
     // ---- LLM streaming: Lambda response streaming -> Claude on Bedrock ------
     // Demonstrates §10 step 4: token streaming that lives OUTSIDE the reactive
     // plane. The committed text is later persisted via a GraphQL mutation.

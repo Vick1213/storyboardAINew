@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { Character } from "@storyboard/types";
 import type { BiblePanelProps } from "./panels";
 import type { UpdateCharacterInput, CreateCharacterInput } from "../lib/api";
+import { suggestCharacters, type CharacterDraft } from "../lib/api";
 import { colors, card, field, button, buttonPrimary, label, sectionTitle } from "../lib/ui";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -324,6 +325,162 @@ function NewCharacterForm({ onCreateCharacter }: NewCharFormProps) {
   );
 }
 
+// ── SuggestCast — AI-proposed cast, curated before persisting ───────────────────
+// Calls the suggestCharacters generation (Bedrock tool-use, server-side) directly —
+// like grounded writing, AI generation isn't routed through the CRUD callbacks. The
+// drafts are NEVER auto-saved: the user selects which to keep, and only those are
+// written via onCreateCharacter (invariant #1, bible stays human-authoritative).
+function SuggestCast({
+  storyId,
+  onCreateCharacter,
+}: {
+  storyId: string;
+  onCreateCharacter: (input: Omit<CreateCharacterInput, "storyId">) => Promise<void>;
+}) {
+  const [drafts, setDrafts] = useState<CharacterDraft[] | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function suggest() {
+    setLoading(true);
+    setError(null);
+    try {
+      const d = await suggestCharacters(storyId, 4);
+      setDrafts(d);
+      setSelected(new Set(d.map((_, i) => i))); // all selected by default
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggle(i: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  }
+
+  async function addSelected() {
+    if (!drafts) return;
+    setAdding(true);
+    try {
+      // Sequential so subscription echoes/upserts settle predictably.
+      for (const i of [...selected].sort((a, b) => a - b)) {
+        const d = drafts[i];
+        if (!d) continue;
+        await onCreateCharacter({
+          name: d.name,
+          role: d.role,
+          traits: d.traits,
+          tendencies: d.tendencies,
+          speechPatterns: d.speechPatterns,
+          appearance: d.appearance,
+        });
+      }
+      setDrafts(null);
+      setSelected(new Set());
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  if (!drafts) {
+    return (
+      <div style={{ marginBottom: 8 }}>
+        <button
+          style={loading ? { ...button, opacity: 0.6, cursor: "not-allowed" } : button}
+          onClick={suggest}
+          disabled={loading}
+        >
+          {loading ? "Imagining a cast…" : "✨ Suggest cast from premise"}
+        </button>
+        {error && (
+          <p style={{ fontSize: 12, color: colors.danger, margin: "6px 0 0" }}>{error}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        marginBottom: 10,
+        padding: 12,
+        border: `1px dashed ${colors.accent}66`,
+        borderRadius: 10,
+        background: `${colors.accent}0d`,
+      }}
+    >
+      <p style={{ ...sectionTitle, margin: "0 0 8px", color: colors.accent }}>
+        Proposed cast — pick who joins the bible
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {drafts.map((d, i) => (
+          <label
+            key={i}
+            style={{
+              display: "flex",
+              gap: 8,
+              padding: 8,
+              borderRadius: 8,
+              background: selected.has(i) ? colors.panelAlt : "transparent",
+              border: `1px solid ${selected.has(i) ? colors.border : "transparent"}`,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(i)}
+              onChange={() => toggle(i)}
+              style={{ accentColor: colors.accent, marginTop: 2 }}
+            />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>
+                {d.name}
+                {d.role && <span style={{ color: colors.dim, fontWeight: 400 }}> · {d.role}</span>}
+              </div>
+              {!!d.traits?.length && (
+                <div style={{ fontSize: 12, color: colors.dim, marginTop: 2 }}>
+                  {d.traits.join(", ")}
+                </div>
+              )}
+              {!!d.tendencies?.length && (
+                <div style={{ fontSize: 12, color: colors.dim, marginTop: 2, fontStyle: "italic" }}>
+                  {d.tendencies.slice(0, 2).join(" · ")}
+                </div>
+              )}
+            </div>
+          </label>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+        <button
+          style={
+            adding || selected.size === 0
+              ? { ...buttonPrimary, opacity: 0.5, cursor: "not-allowed" }
+              : buttonPrimary
+          }
+          onClick={addSelected}
+          disabled={adding || selected.size === 0}
+        >
+          {adding ? "Adding…" : `Add selected (${selected.size})`}
+        </button>
+        <button style={button} onClick={() => setDrafts(null)} disabled={adding}>
+          Dismiss
+        </button>
+        <span style={{ fontSize: 11, color: colors.dim }}>
+          Edit any of them after adding in the list above.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── BiblePanel ────────────────────────────────────────────────────────────────
 
 export function BiblePanel({ story, characters, onCreateCharacter, onUpdateCharacter }: BiblePanelProps) {
@@ -363,8 +520,7 @@ export function BiblePanel({ story, characters, onCreateCharacter, onUpdateChara
 
       {characters.length === 0 ? (
         <p style={{ fontSize: 13, color: colors.dim, margin: "0 0 8px" }}>
-          No characters yet — add the cast that drives this story. (Coming soon: suggest a
-          cast from your premise.)
+          No characters yet — let the AI propose a cast from your premise, or add one by hand.
         </p>
       ) : (
         <div style={{ marginBottom: 4 }}>
@@ -379,6 +535,7 @@ export function BiblePanel({ story, characters, onCreateCharacter, onUpdateChara
         </div>
       )}
 
+      <SuggestCast storyId={story.id} onCreateCharacter={onCreateCharacter} />
       <NewCharacterForm onCreateCharacter={onCreateCharacter} />
     </div>
   );
